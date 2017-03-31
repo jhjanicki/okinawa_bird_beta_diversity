@@ -1,0 +1,579 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta http-equiv="Content-Type" content="text/html;charset=utf-8"/>
+	<title>Ryukyu Islands Distances</title>
+
+	<!-- D3.js -->	
+    <script src="https://d3js.org/d3.v3.js"></script>
+	<script src="https://d3js.org/queue.v1.min.js" type="text/javascript"></script>
+	
+	<!-- jQuery -->
+	<script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js"></script>
+	<!-- Latest compiled and minified CSS -->
+	<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.2/css/bootstrap.min.css">
+	<!-- Latest compiled and minified JavaScript -->
+	<script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.2/js/bootstrap.min.js"></script>
+	
+	<!-- Open Sans & CSS -->
+	<link href='https://fonts.googleapis.com/css?family=Roboto' rel='stylesheet' type='text/css'>
+	  <style>
+		body {
+		  font-family: 'Roboto', sans-serif;
+		  font-size: 14px;
+		  font-weight: 400;
+		  color: #525252;
+		  text-align: center;
+		}
+		
+		html, body { 
+			width:auto; 
+			height:auto; 
+		}
+		.margin30{
+			margin-bottom:30px;
+		}
+		
+		
+		.axis path,
+		.axis line {
+		  fill: none;
+		  stroke: #000;
+		  shape-rendering: crispEdges;
+		}
+
+		.dot {
+		  stroke: #000;
+		}
+		
+		.tooltip {
+			background: white;
+			box-shadow: 0 0 5px #999999;
+			color: #333;
+			font-size: 12px;
+			padding: 10px;
+			position: absolute;
+			text-align: center;
+			top: -20px;
+			left: 20px;
+			z-index: 10;
+			display: block;
+			opacity: 0;
+			font-family: 'Roboto', sans-serif;
+		}
+		
+		.islands{
+			color:white;
+			background-color:black;
+			font-family: 'Roboto', sans-serif;
+			font-size:16px;
+		}
+		
+		.legendCircle {
+			stroke-width:1;
+			stroke:#999;
+			stroke-dasharray:2 2;
+			fill:none;
+		}
+
+		.legendLine {
+			stroke-width: 1;
+			stroke: #D1D1D1;
+			shape-rendering: crispEdges;
+		}
+
+		.legendTitle {
+			fill: #1A1A1A;
+			color: #1A1A1A;
+			text-anchor: middle;
+			font-size: 10px;
+		}
+
+		.legendText {
+			fill: #949494;
+			text-anchor: start;
+			font-size: 9px;
+		}
+
+
+	  </style>
+  </head>
+  <body>
+
+	
+	<div id="cont" class="container-fluid text-center">
+		
+		<div class="row">
+			<div class = "col-md-3">
+				<div id="colorlegend"></div>
+			</div>
+			<div class = "col-md-6 margin30">
+				<h2 class="margin30"> Ryukyu Islands Land Bird Beta Diversity vs Island Distance</h2>
+				
+			</div>
+			<div class = "col-md-3">
+			</div>
+		</div>
+		
+		
+		<body onload="adjacency()">
+		<div class="row">
+
+			<div class = "col-md-2">
+				<div id="legend"></div>
+			</div>
+			<div class = "col-md-8">
+				<svg height='960px' width='960px'></svg>
+				<div id="tooltip"></div>
+				
+			</div>
+			<div class = "col-md-2">
+			</div>
+		</div>
+	</div>
+
+<script>
+
+function adjacency() {
+
+    queue()
+    .defer(d3.csv, "nodelist_NS.csv")
+    .defer(d3.csv, "edgelist_NS.csv")
+    .await(function(error, file1, file2) { createAdjacencyMatrix(file1, file2); });
+    
+    function createAdjacencyMatrix(nodes,edges) {
+      var edgeHash = {};
+      for (x in edges) {
+        var id = edges[x].source + "-" + edges[x].target;
+        edgeHash[id] = edges[x];
+      }
+      matrix = [];
+      //create all possible edges
+      for (a in nodes) {
+        for (b in nodes) {
+          var grid = {id: nodes[a].id + "-" + nodes[b].id, x: b, y: a, distance: 0};
+          if (edgeHash[grid.id]) {
+            grid.distance = edgeHash[grid.id].distance;
+            grid.vegan = edgeHash[grid.id].vegan;
+            grid.raupcrick = edgeHash[grid.id].raupcrick;
+            grid.source = edgeHash[grid.id].source;
+            grid.target = edgeHash[grid.id].target;
+          }
+          matrix.push(grid);
+        }
+      }
+      
+     
+     
+     edges.forEach(function(d) {
+		d.distance = +d.distance; // convert to number
+		d.vegan = +d.vegan;
+		d.raupcrick = +d.raupcrick;
+	  });
+      
+      
+      
+      
+      ///////////////////////////////////////////////////////////////////////////
+	  //////////////// Set up color scale for distance //////////////////////////
+	  ///////////////////////////////////////////////////////////////////////////
+      
+      var colorScale = d3.scale.linear().range(["#ebf8ff","#004263"]);
+      
+      colorScale.domain(d3.extent(edges, function(d) { return d.distance; }))
+      
+      ///////////////////////////////////////////////////////////////////////////
+	  //////////////// Set up color & r scale for vegan /////////////////////////
+	  ///////////////////////////////////////////////////////////////////////////
+      
+      var colorScaleBubble = d3.scale.linear().range(["#fcbba1","#a50f15"]);
+      colorScaleBubble.domain(d3.extent(edges, function(d) { return d.vegan; }));
+      
+       var rscale = d3.scale.linear().range([2,12]);
+      	  rscale.domain(d3.extent(edges, function(d) { return d.vegan; }))
+      
+      ///////////////////////////////////////////////////////////////////////////
+	  //////////////// Set up color scale for Raupcrick /////////////////////////
+	  ///////////////////////////////////////////////////////////////////////////
+      
+      var colorScaleRC = d3.scale.linear().range(["#f1a340","#f7f7f7","#998ec3"]);
+      colorScaleRC.domain([-1,0,1]);
+      
+	  ///////////////////////////////////////////////////////////////////////////
+	  //////////////// Tooltip set up ///////////////////////////////////////////
+	  ///////////////////////////////////////////////////////////////////////////	
+	
+		
+       var tooltip = d3.select("#tooltip")
+			.append('div')
+			.attr('class', 'tooltip');
+
+			tooltip.append('div')
+			.attr('class', 'islands');
+			tooltip.append('div')
+			.attr('class', 'distance');
+			tooltip.append('div')
+			.attr('class', 'crick');
+			tooltip.append('div')
+			.attr('class', 'vegan');
+      
+      
+      ///////////////////////////////////////////////////////////////////////////
+	  //////////////// Draw and color rects /////////////////////////////////////
+	  ///////////////////////////////////////////////////////////////////////////	
+      
+      
+      var svg = d3.select("svg")
+		  .append("g")
+		  .attr("transform", "translate(120,150)")
+		  .attr("id", "adjacencyG")
+		  .selectAll("rect")
+		  .data(matrix)
+		  .enter()
+		  .append("rect")
+		  .attr("class","cell")
+		  .attr("width", 25)
+		  .attr("height", 25)
+		  .attr("x", function (d) {return d.x * 25})
+		  .attr("y", function (d) {return d.y * 25})
+		  .style("stroke", "black")
+		  .style("stroke-width", "0px")
+		  .style("fill", function(d){
+				// console.log(d);
+				if (d.distance == 0 || d.distance ==null){
+					return "white"
+				}else{
+					return colorScale(d.distance)
+				}
+				;})
+		  .on("mouseover", gridOver)
+      
+
+      
+      
+      ///////////////////////////////////////////////////////////////////////////
+	  //////////////// Draw and color circles ///////////////////////////////////
+	  ///////////////////////////////////////////////////////////////////////////	
+      
+       d3.select("svg")
+      	.append("g")
+      	.attr("transform", "translate(120,150)")
+      	.attr("id", "adjacencyCircle")
+      	.selectAll("circle")
+      	.data(matrix)
+      	.enter()
+      	.append("circle")
+      	.attr("r", function(d){
+      	// if (d.raupcrick != null){
+//       		return 7;
+//       	}
+		   return rscale(d.vegan)
+		  })
+		  .attr("cx", function (d) {return d.x * 25+12.5})
+		  .attr("cy", function (d) {return d.y * 25+12.5})
+		  .style("fill", function(d){return colorScaleRC(d.raupcrick)});
+
+
+	  ///////////////////////////////////////////////////////////////////////////
+	  //////////////// Draw Nodes ///////////////////////////////////////////////
+	  ///////////////////////////////////////////////////////////////////////////
+	  
+		  var scaleSize = nodes.length * 25;
+		  var nameScale = d3.scale.ordinal().domain(nodes.map(function (el) {return el.id})).rangePoints([0,scaleSize],1);
+	  
+	  ///////////////////////////////////////////////////////////////////////////
+	  //////////////// Label Nodes ///////////////////////////////////////////////
+	  ///////////////////////////////////////////////////////////////////////////
+	  
+		  xAxis = d3.svg.axis().scale(nameScale).orient("top").tickSize(4);    
+		  yAxis = d3.svg.axis().scale(nameScale).orient("left").tickSize(4);    
+		  d3.select("#adjacencyG").append("g").call(xAxis).selectAll("text").style("text-anchor", "end").attr("transform", "translate(-10,-10) rotate(90)");
+		  d3.select("#adjacencyG").append("g").call(yAxis);
+		  
+	  
+	  ///////////////////////////////////////////////////////////////////////////
+	  //////////////// Mouseover Function ///////////////////////////////////////
+	  ///////////////////////////////////////////////////////////////////////////
+	  
+	  
+		  function gridOver(d,i) {
+				d3.selectAll("rect.cell").style("stroke-width", function (p) {return p.x == d.x || p.y == d.y ? "1px" : "0px"})
+		
+				console.log(d.distance);
+				if(d.distance == 0){
+					tooltip.style('opacity',0);	
+		
+				}        
+				else
+				{
+					tooltip.style('opacity',1);	
+					tooltip.select('.islands').html("<b>" + d.source +"-"+d.target+ "</b>");
+					tooltip.select('.distance').html("<b> Distance: " + d.distance + " km</b>");
+					tooltip.select('.crick').html("<b> Raupcrick: " + d.raupcrick + "</b>");
+					tooltip.select('.vegan').html("<b> Vegan: " + d.vegan + "</b>");
+
+					tooltip.style('display', 'block');
+					tooltip.style('opacity',2);
+				}
+        
+      		}
+      
+      
+      	///////////////////////////////////////////////////////////////////////////
+		//////////////// Create the gradient for the legend (Raupcrick) ///////////
+		///////////////////////////////////////////////////////////////////////////
+
+		var colorlegendWidth =300;
+		//Extra scale since the color scale is interpolated
+		var colorlegendScale = d3.scale.linear()
+			.domain([-1, 1])
+			.range([0, colorlegendWidth]);
+
+
+	
+
+		//Create the gradient
+		var defs =  d3.select("svg")
+      	.append("g").append("defs");
+
+		var linearGradient = defs.append("linearGradient")
+			.attr("id", "legendcolor");
+	
+			linearGradient
+			.attr("x1", "0%").attr("y1", "0%")
+			.attr("x2", "100%").attr("y2", "0%");
+	
+	
+			linearGradient.append("stop") 
+			.attr("offset", "0%")   
+			.attr("stop-color", "#f1a340"); //yellow
+
+			linearGradient.append("stop") 
+			.attr("offset", "50%")   
+			.attr("stop-color", "#f7f7f7"); //white
+
+
+			linearGradient.append("stop") 
+			.attr("offset", "100%")   
+			.attr("stop-color", "#998ec3"); //purple
+			
+	
+	
+
+
+		///////////////////////////////////////////////////////////////////////////
+		////////////////////////// Draw the legend (Raupcrick) ////////////////////
+		///////////////////////////////////////////////////////////////////////////
+
+
+
+		//Color Legend container
+		var legendsvg =  d3.select("svg").append("g")
+			.attr("class", "legendWrapper");
+
+		legendsvg.attr("transform", "translate(130, 0)");
+
+
+		//Draw the Rectangle
+		legendsvg.append("rect")
+			.attr("class", "legendRect")
+			.attr("rx", 4)
+			.attr("width", colorlegendWidth)
+			.attr("height", 8)
+			.style("fill", "url(#legendcolor)");
+	
+		//Append title
+		legendsvg.append("text")
+			.attr("class", "legendTitle")
+			.attr("x", 150)
+			.attr("y", 45)
+			.style("text-anchor", "middle")
+			.text("Raupcrick");
+
+		//Set scale for x-axis
+		var xlegendScale = d3.scale.linear()
+			 .range([0, colorlegendWidth])
+			 .domain([-1,1] );
+
+		//Define x-axis
+		var xlegendAxis = d3.svg.axis()
+			  .orient("bottom")
+			  .ticks(5)
+			  .tickFormat(function(d) { return d;})
+			  .scale(xlegendScale);
+
+		//Set up X axis
+		legendsvg.append("g")
+			.attr("class", "axis")
+			.attr("transform", "translate(0," + (10) + ")")
+			.call(xlegendAxis);
+			
+		
+		///////////////////////////////////////////////////////////////////////////
+		//////////////// Create the gradient for the legend (Distance) ////////////
+		///////////////////////////////////////////////////////////////////////////
+		
+		//Create the gradient
+		var defs_d=  d3.select("svg")
+      	.append("g").append("defs");
+
+		var linearGradient_d = defs_d.append("linearGradient")
+			.attr("id", "legendcolor_d");
+	
+			linearGradient_d
+			.attr("x1", "0%").attr("y1", "0%")
+			.attr("x2", "100%").attr("y2", "0%");
+	
+	
+			linearGradient_d.append("stop") 
+			.attr("offset", "0%")   
+			.attr("stop-color", "#ebf8ff"); //light blue
+
+			
+
+			linearGradient_d.append("stop") 
+			.attr("offset", "100%")   
+			.attr("stop-color", "#004263"); //dark blue
+		
+		///////////////////////////////////////////////////////////////////////////
+		////////////////////////// Draw the legend (Distance) /////////////////////
+		///////////////////////////////////////////////////////////////////////////
+		
+			//Color Legend container
+		var legendsvg_d =  d3.select("svg").append("g")
+			.attr("class", "legendWrapper_d");
+
+		legendsvg_d.attr("transform", "translate(470, 0)");
+
+
+		//Draw the Rectangle
+		legendsvg_d.append("rect")
+			.attr("class", "legendRect")
+			.attr("rx", 4)
+			.attr("width", colorlegendWidth)
+			.attr("height", 8)
+			.style("fill", "url(#legendcolor_d)");
+	
+		//Append title
+		legendsvg_d.append("text")
+			.attr("class", "legendTitle")
+			.attr("x", 150)
+			.attr("y", 45)
+			.style("text-anchor", "middle")
+			.text("Island Distance (km)");
+
+		//Set scale for x-axis
+		var xlegendScale = d3.scale.linear()
+			 .range([0, colorlegendWidth])
+			 .domain([0,1000]);
+
+		//Define x-axis
+		var xlegendAxis = d3.svg.axis()
+			  .orient("bottom")
+			  .ticks(5)
+			  .tickFormat(function(d) { return d;})
+			  .scale(xlegendScale);
+
+		//Set up X axis
+		legendsvg_d.append("g")
+			.attr("class", "axis")
+			.attr("transform", "translate(0," + (10) + ")")
+			.call(xlegendAxis);
+		
+		
+		//////////////////////////////////////////////////////
+		/////////////////// Bubble Legend ////////////////////
+		//////////////////////////////////////////////////////
+		
+		var bubbleLegend =  d3.select("svg").append("g")
+			.attr("class", "bubbleLegend");
+		
+		bubbleLegend.attr("transform", "translate(850, 0)");
+		
+		
+		var legendSize1 = 0,
+		legendSize2 = 0.5,
+		legendSize3 = 1,
+		legendCenter = 0,
+		legendBottom = 50,
+		legendLineLength = 25,
+		textPadding = 5,
+		numFormat = d3.format(",");
+	
+	bubbleLegend.append("text")
+		.attr("class","legendTitle")
+		.attr("transform", "translate(" + legendCenter + "," + 0 + ")")
+		.attr("x", 0 + "px")
+		.attr("y", 0 + "px")
+		.attr("dy", "1em")
+		.text("Vegan");
+		
+	bubbleLegend.append("circle")
+        .attr('r', rscale(legendSize1))
+        .attr('class',"legendCircle")
+        .attr('cx', legendCenter)
+        .attr('cy', (legendBottom-rscale(legendSize1)));
+    bubbleLegend.append("circle")
+        .attr('r', rscale(legendSize2))
+        .attr('class',"legendCircle")
+        .attr('cx', legendCenter)
+        .attr('cy', (legendBottom-rscale(legendSize2)));
+    bubbleLegend.append("circle")
+        .attr('r', rscale(legendSize3))
+        .attr('class',"legendCircle")
+        .attr('cx', legendCenter)
+        .attr('cy', (legendBottom-rscale(legendSize3)));
+		
+	bubbleLegend.append("line")
+        .attr('class',"legendLine")
+        .attr('x1', legendCenter)
+        .attr('y1', (legendBottom-2*rscale(legendSize1)))
+		.attr('x2', (legendCenter + legendLineLength))
+        .attr('y2', (legendBottom-2*rscale(legendSize1)));	
+	bubbleLegend.append("line")
+        .attr('class',"legendLine")
+        .attr('x1', legendCenter)
+        .attr('y1', (legendBottom-2*rscale(legendSize2)))
+		.attr('x2', (legendCenter + legendLineLength))
+        .attr('y2', (legendBottom-2*rscale(legendSize2)));
+	bubbleLegend.append("line")
+        .attr('class',"legendLine")
+        .attr('x1', legendCenter)
+        .attr('y1', (legendBottom-2*rscale(legendSize3)))
+		.attr('x2', (legendCenter + legendLineLength))
+        .attr('y2', (legendBottom-2*rscale(legendSize3)));
+		
+	bubbleLegend.append("text")
+        .attr('class',"legendText")
+        .attr('x', (legendCenter + legendLineLength + textPadding))
+        .attr('y', (legendBottom-2*rscale(legendSize1)))
+		.attr('dy', '0.25em')
+		.text("0");
+	bubbleLegend.append("text")
+        .attr('class',"legendText")
+        .attr('x', (legendCenter + legendLineLength + textPadding))
+        .attr('y', (legendBottom-2*rscale(legendSize2)))
+		.attr('dy', '0.25em')
+		.text("0.5");
+	bubbleLegend.append("text")
+        .attr('class',"legendText")
+        .attr('x', (legendCenter + legendLineLength + textPadding))
+        .attr('y', (legendBottom-2*rscale(legendSize3)))
+		.attr('dy', '0.25em')
+		.text("1");
+		
+      
+
+
+    }
+    
+  }
+
+
+
+
+
+</script>
+	
+  </body>
+</html>
